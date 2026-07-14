@@ -1,0 +1,16 @@
+{
+  "name": "Accent Gaming",
+  "short_name": "Accent",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#2563EB",
+  "description": "Tabletop gaming hub for Dunfermline and Kirkcaldy.",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/806/806055.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
