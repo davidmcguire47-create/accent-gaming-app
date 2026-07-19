@@ -12,15 +12,15 @@
   }
 </script>
     
-    <!-- PWA Requirements -->
-    <link rel="manifest" href="manifest.json">
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('sw.js');
-        });
-      }
-    </script>
+ <!-- PWA Requirements -->
+<link rel="manifest" href="/Accent-Gaming-App/manifest.json">
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/Accent-Gaming-App/sw.js');
+    });
+  }
+</script>
 </head>
 <body class="bg-gray-50 font-sans leading-normal tracking-normal flex flex-col min-h-screen">
 
