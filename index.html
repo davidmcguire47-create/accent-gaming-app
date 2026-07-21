@@ -1,27 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Accent Gaming</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- PWA Web Manifest -->
   <link rel="manifest" href="manifest.json">
-   <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/Accent-Gaming-App/sw.js');
-    });
-  }
-</script>
-    
- <!-- PWA Requirements -->
-<link rel="manifest" href="manifest.json">
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/Accent-Gaming-App/sw.js');
-    });
-  }
-</script>
+  
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('SW Registered!', reg))
+          .catch(err => console.error('SW Registration Failed:', err));
+      });
+    }
+  </script>
 </head>
 <body class="bg-gray-50 font-sans leading-normal tracking-normal flex flex-col min-h-screen">
 
