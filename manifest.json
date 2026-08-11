@@ -11,6 +11,7 @@
   "orientation": "any",
   "icons": [
     {
+      "src": "https://cdn.corenexis.com/f/jDzd4MUX1A1.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
