@@ -1,23 +1,24 @@
 const CACHE_NAME = 'accent-gaming-v1';
-const ASSETS = [
-  '/Accent-Gaming-App/',
-  '/Accent-Gaming-App/index.html',
-  '/Accent-Gaming-App/manifest.json',
-  '/Accent-Gaming-App/image_3fb224.jpg'
+const urlsToCache = [
+  './',
+  './index.html',
+  './manifest.json'
 ];
 
-self.addEventListener('install', (event) => {
+self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    })
+    caches.open(CACHE_NAME)
+      .then(cache => {
+        return cache.addAll(urlsToCache);
+      })
   );
 });
 
-self.addEventListener('fetch', (event) => {
+self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
+    caches.match(event.request)
+      .then(response => {
+        return response || fetch(event.request);
+      })
   );
 });
