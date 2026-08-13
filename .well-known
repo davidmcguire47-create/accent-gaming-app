@@ -1,9 +1,0 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "com.accent.gaming",
-        "sha256_cert_fingerprints": ["35:2B:C4:11:67:C8:62:9B:0B:07:6A:9E:01:61:BE:BD:CC:6F:7B:EC:17:AC:BB:3C:10:75:91:A1:52:1C:1F:63]
-      }
-    }]
-
