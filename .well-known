@@ -3,7 +3,7 @@
       "target": {
         "namespace": "android_app",
         "package_name": "com.accent.gaming",
-        "sha256_cert_fingerprints": ["18:19:61:B6:D1:3E:95:42:E8:17:D5:AD:CB:EA:7C:78:F7:6E:2C:2D:DC:26:24:C1:25:93:67:8C:6C:42:11:F5"]
+        "sha256_cert_fingerprints": ["35:2B:C4:11:67:C8:62:9B:0B:07:6A:9E:01:61:BE:BD:CC:6F:7B:EC:17:AC:BB:3C:10:75:91:A1:52:1C:1F:63]
       }
     }]
 
