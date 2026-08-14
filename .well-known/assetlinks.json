@@ -1,8 +1,11 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "com.accent.gaming",
-        "sha256_cert_fingerprints": ["35:2B:C4:11:67:C8:62:9B:0B:07:6A:9E:01:61:BE:BD:CC:6F:7B:EC:17:AC:BB:3C:10:75:91:A1:52:1C:1F:63]
-      }
-    }]
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.accent.gaming.app",
+      "sha256_cert_fingerprints":
+        ["0C:19:2D:DB:DE:26:AB:B7:7B:5A:1D:8E:9D:7D:A7:8B:6C:7C:2A:23:10:EA:9A:B1:10:DC:72:3C:C8:F7:56:B6"]
+    }
+  }
+]
