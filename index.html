@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Accent Gaming</title>
   
+  <!-- Web Icon / Favicon -->
+  <link rel="icon" type="image/png" href="https://cdn.corenexis.com/f/jDzd4MUX1A1.png">
+  <link rel="apple-touch-icon" href="https://cdn.corenexis.com/f/jDzd4MUX1A1.png">
+  
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   
@@ -518,7 +522,7 @@
 
         futureRegs.sort((a,b) => {
             let aDate = a.eventType === 'weekly' ? a.exactDate : a.eventDay;
-            let bDate = b.eventType === 'weekly' ? b.exactDate : b.eventDay;
+            let bDate = b.eventType === 'weekly' ? b.exactDate : a.eventDay;
             return new Date(aDate) - new Date(bDate);
         });
 
@@ -752,7 +756,6 @@
         let displayDate = sub1;
         let exactDate = sub1;
         
-        // Convert day to exact next date for weeklies
         if (type === 'weekly') {
             exactDate = window.calculateNextDateForDay(sub1);
             displayDate = `${sub1} (${exactDate})`;
@@ -1061,6 +1064,7 @@
             window.specialEventsData.forEach(ev => {
                 let regHTML = ''; let regCount = 0;
                 window.allRegistrationsData.forEach(r => {
+                    // Special events remain until manually deleted
                     if (r.eventType === 'special' && r.eventName === ev.title && r.eventLoc === ev.location) {
                         regCount++;
                         regHTML += `
@@ -1142,6 +1146,7 @@
         
         const now = new Date();
         
+        // Hide past weekly registrations
         let validRegs = window.allRegistrationsData.filter(r => {
             if (r.eventType === 'weekly') {
                 if (r.exactDate && new Date(`${r.exactDate}T23:59:59`) < now) return false;
@@ -1767,6 +1772,7 @@
             if (u.factions && u.factions[sysKey]) {
                 Object.keys(u.factions[sysKey]).forEach(fac => {
                     let stats = u.factions[sysKey][fac];
+                    // Only show on leaderboard if they have played games or their elo has changed from base 500
                     if (stats.wins > 0 || stats.losses > 0 || stats.draws > 0 || stats.rating !== 500) {
                         
                         // Faction Filter
@@ -1854,7 +1860,8 @@
                 if (window.currentUser.factions && window.currentUser.factions[sys]) {
                     Object.keys(window.currentUser.factions[sys]).forEach(fac => {
                         let st = window.currentUser.factions[sys][fac];
-                        if(st.wins > 0 || st.losses > 0 || st.draws > 0 || st.rating !== 500) {
+                        // Show in roster if they have played, OR if they have clicked lock-in creating the base rating
+                        if(st.wins > 0 || st.losses > 0 || st.draws > 0 || st.rating !== 500 || (sys === '40k' && fac === window.currentUser.locked40k) || (sys === 'AoS' && fac === window.currentUser.lockedAoS)) {
                             myFactionsArr.push({ sys, fac, ...st });
                         }
                     });
@@ -2832,8 +2839,8 @@
                                 <option value="all">All Factions</option>
                             </select>
                             <div class="flex flex-col space-y-1 bg-gray-800 p-1 rounded-lg border border-gray-700 w-full sm:w-auto">
-                                <button id="leaderboard-btn-40k" onclick="setLeaderboardSystem('40k')" class="w-full px-3 py-1.5 rounded text-xs font-bold bg-blue-600 text-white transition whitespace-nowrap text-center">40k Standings</button>
-                                <button id="leaderboard-btn-aos" onclick="setLeaderboardSystem('aos')" class="w-full px-3 py-1.5 rounded text-xs font-bold text-gray-400 hover:text-white transition whitespace-nowrap text-center">AoS Standings</button>
+                                <button id="leaderboard-btn-40k" onclick="setLeaderboardSystem('40k')" class="flex-1 px-4 py-1.5 rounded text-xs font-bold bg-blue-600 text-white transition whitespace-nowrap text-center">40k Standings</button>
+                                <button id="leaderboard-btn-aos" onclick="setLeaderboardSystem('aos')" class="flex-1 px-4 py-1.5 rounded text-xs font-bold text-gray-400 hover:text-white transition whitespace-nowrap text-center">AoS Standings</button>
                             </div>
                         </div>
                     </div>
@@ -3039,136 +3046,23 @@
                 <!-- Header -->
                 <div class="flex flex-col sm:flex-row justify-between items-center bg-gray-900 rounded-xl p-6 shadow-lg text-white space-y-4 sm:space-y-0">
                     <div class="text-center sm:text-left">
-                        <h1 class="text-2xl sm:text-3xl font-extrabold leading-tight">War Score Administration</h1>
-                        <p class="text-gray-400 text-sm mt-1">Manage global leaderboards, tier modifiers, and store approvals.</p>
+                        <h1 class="text-2xl sm:text-3xl font-extrabold leading-tight">War Score Admin</h1>
+                        <p class="text-gray-400 text-sm mt-1">Manage global Elo, player stats, tier modifiers, and match history.</p>
                     </div>
                     <button onclick="showPage('staffdashboard')" class="w-full sm:w-auto bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded shadow font-bold text-sm transition">Back to Main Dashboard</button>
                 </div>
 
-                <!-- Approved Stores Manager -->
-                <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
-                    <h2 class="text-lg font-bold text-gray-900 border-b pb-2 mb-4">Approved Stores & Shop Locations</h2>
-                    <p class="text-xs text-gray-600 mb-4">Add your shop locations (e.g. Dunfermline, Kirkcaldy) here to populate the Leaderboard filters. Players must enter a location's code to upload competitive games. You can edit the verification codes at any time.</p>
-                    <div class="flex flex-col sm:flex-row items-end space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
-                        <div class="flex-grow w-full">
-                            <label class="block text-xs font-bold text-gray-700 mb-1">Store Location Name</label>
-                            <input type="text" id="admin-new-store-name" placeholder="e.g. Dunfermline" class="w-full border border-gray-300 rounded py-2 px-3 text-sm">
-                        </div>
-                        <div class="w-full sm:w-32">
-                            <label class="block text-xs font-bold text-gray-700 mb-1">Custom Code (Opt)</label>
-                            <input type="text" id="admin-new-store-code" placeholder="Leave Blank" class="w-full border border-gray-300 rounded py-2 px-3 text-sm uppercase font-mono">
-                        </div>
-                        <button onclick="addApprovedStore()" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow transition h-[38px] whitespace-nowrap">Add Location</button>
-                    </div>
-                    <ul id="admin-approved-stores-list" class="divide-y divide-gray-100 bg-gray-50 p-2 rounded max-h-40 overflow-y-auto border border-gray-100 shadow-inner"></ul>
-                </div>
-
-                <!-- Global War Score & Match Management -->
-                <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
-                    <h2 class="text-lg font-bold text-gray-900 border-b pb-2 mb-4">Global Match History & Leaderboards</h2>
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="col-span-1 lg:border-r border-gray-200 lg:pr-6">
-                            <h3 class="text-sm font-bold text-blue-800 mb-2 border-b border-blue-100 pb-1">40k Elo Standings</h3>
-                            <ul id="admin-lb-list-40k" class="divide-y divide-gray-100 max-h-48 overflow-y-auto bg-blue-50 p-2 rounded text-sm shadow-inner mb-6"></ul>
-                            
-                            <h3 class="text-sm font-bold text-green-800 mb-2 border-b border-green-100 pb-1">AoS Elo Standings</h3>
-                            <ul id="admin-lb-list-aos" class="divide-y divide-gray-100 max-h-48 overflow-y-auto bg-green-50 p-2 rounded text-sm shadow-inner"></ul>
-                        </div>
-                        <div class="col-span-1 lg:col-span-2">
-                            <div class="flex justify-between items-center mb-2">
-                                <h3 class="text-sm font-bold text-gray-900">Global Match History Log</h3>
-                                <span id="global-match-count" class="bg-gray-800 text-white text-xs font-bold px-2 py-1 rounded shadow">0 Matches</span>
-                            </div>
-                            <ul id="admin-global-history" class="divide-y divide-gray-100 max-h-[450px] overflow-y-auto bg-gray-50 p-3 rounded border border-gray-200 shadow-inner"></ul>
-                        </div>
-                    </div>
-                    
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <!-- Manual Player Override -->
-                    <div class="mt-8 border-t border-gray-200 pt-6">
-                        <h3 class="text-md font-bold text-gray-900 mb-4">Manual Player Override (Name, Faction Elo & Record)</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
+                        <h2 class="text-lg font-bold text-gray-900 border-b pb-2 mb-4 text-red-600">Manual Player Override</h2>
+                        <p class="text-xs text-gray-500 mb-4">Directly edit a player's Elo rating, win/loss record, or display name.</p>
+                        <div class="space-y-4">
                             <div>
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Select Player</label>
-                                <select id="admin-override-user" onchange="populatePlayerOverrideForm()" class="w-full border border-gray-300 rounded py-2 px-3 bg-gray-50 text-sm"></select>
+                                <select id="admin-override-user" onchange="populatePlayerOverrideForm()" class="w-full border border-gray-300 rounded p-2 text-sm bg-gray-50"></select>
                             </div>
-                            <div>
-                                <label class="block text-xs font-bold text-gray-700 mb-1">Update Name</label>
-                                <input type="text" id="admin-override-name" class="w-full border border-gray-300 rounded py-2 px-3 bg-gray-50 text-sm">
-                            </div>
-                        </div>
-                        
-                        <div class="bg-gray-100 p-4 rounded-lg border border-gray-300 mb-4">
-                            <h4 class="font-bold text-sm text-gray-900 mb-3 border-b border-gray-300 pb-1">Edit Specific Faction Stats</h4>
-                            <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+                            <div class="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label class="text-[10px] font-bold text-gray-500">System</label>
-                                    <select id="admin-override-system" onchange="updateOverrideFactionDropdown()" class="w-full border border-gray-300 rounded p-1.5 text-sm bg-white">
-                                        <option value="40k">40k</option><option value="AoS">AoS</option>
-                                    </select>
-                                </div>
-                                <div class="md:col-span-2">
-                                    <label class="text-[10px] font-bold text-gray-500">Target Faction</label>
-                                    <select id="admin-override-faction" onchange="populateOverrideStats()" class="w-full border border-gray-300 rounded p-1.5 text-sm bg-white"></select>
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-4 gap-3 mt-3">
-                                <div><label class="text-[10px] font-bold text-gray-500">Elo Rating</label><input type="number" id="admin-o-elo" class="w-full border border-gray-300 rounded p-1 text-sm bg-white"></div>
-                                <div><label class="text-[10px] font-bold text-gray-500">Wins</label><input type="number" id="admin-o-w" class="w-full border border-gray-300 rounded p-1 text-sm bg-white"></div>
-                                <div><label class="text-[10px] font-bold text-gray-500">Losses</label><input type="number" id="admin-o-l" class="w-full border border-gray-300 rounded p-1 text-sm bg-white"></div>
-                                <div><label class="text-[10px] font-bold text-gray-500">Draws</label><input type="number" id="admin-o-d" class="w-full border border-gray-300 rounded p-1 text-sm bg-white"></div>
-                            </div>
-                        </div>
-                        <button onclick="submitManualPlayerOverride()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded shadow transition">Force Update Player Faction Data</button>
-                    </div>
-
-                    <!-- Tier Levels Meta Modifiers -->
-                    <div class="mt-8 border-t border-gray-200 pt-6">
-                        <h3 class="text-md font-bold text-gray-900 mb-4">Faction Tier Levels (Meta Modifiers)</h3>
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">
-                            <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 max-h-64 overflow-y-auto shadow-inner relative" id="admin-tiers-40k"></div>
-                            <div class="bg-green-50 p-4 rounded-lg border border-green-100 max-h-64 overflow-y-auto shadow-inner relative" id="admin-tiers-aos"></div>
-                        </div>
-                        <button onclick="saveTierLevels()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded shadow transition">Save Faction Tiers</button>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-
-    </main>
-
-    <!-- Footer -->
-    <footer class="bg-gray-900 text-gray-400 py-8 border-t border-gray-800 mt-auto">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center text-center sm:text-left">
-            <div class="mb-4 sm:mb-0 flex flex-col sm:flex-row items-center sm:items-start justify-center sm:justify-start">
-                <a href="https://accentgamingdunfermline.com/" target="_blank">
-                    <img src="https://cdn.corenexis.com/f/jDzd4MUX1A1.png" alt="Accent Gaming Logo" class="h-12 w-12 mb-3 sm:mb-0 sm:mr-4 rounded-full bg-gray-800 object-cover hover:opacity-80 transition">
-                </a>
-                <div>
-                    <a href="https://accentgamingdunfermline.com/" target="_blank" class="text-white font-bold text-lg uppercase tracking-wide hover:text-blue-400 transition">Accent Gaming</a>
-                    <p class="text-sm mt-1">Dunfermline & Kirkcaldy</p>
-                </div>
-            </div>
-            <div class="text-sm flex flex-col items-center sm:items-end space-y-2 mt-4 sm:mt-0">
-                <p>&copy; 2026 Accent Gaming Ltd.</p>
-                <div class="flex space-x-4 mt-2">
-                    <button onclick="showPage('stafflogin')" class="text-xs text-gray-600 hover:text-gray-300 transition underline">Staff Portal</button>
-                    <button onclick="window.logoutFirebaseUser ? window.logoutFirebaseUser() : logoutUser()" class="text-xs text-red-900 hover:text-red-500 transition underline font-bold">Sign Out App</button>
-                </div>
-            </div>
-        </div>
-    </footer>
-
-    <style>
-        .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        .overflow-x-auto::-webkit-scrollbar { display: none; }
-        .overflow-x-auto { -ms-overflow-style: none; scrollbar-width: none; }
-    </style>
-    
-    <!-- Initialize Override Dropdowns smoothly -->
-    <script>
-        setTimeout(() => { if(typeof window.updateOverrideFactionDropdown === 'function') window.updateOverrideFactionDropdown(); }, 1500);
-    </script>
-</body>
-</html>
+                                    <label class="block text-xs font-bold text-gray-700 mb-1">Display Name</label>
+                                    <input type="text" id="admin-override-name" class="w-full border border-gray-300 rounded p-2 text
