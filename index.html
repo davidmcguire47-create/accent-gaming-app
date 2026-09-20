@@ -43,6 +43,24 @@
     input[type="time"].cool-time::-webkit-calendar-picker-indicator:hover {
         background-color: #bfdbfe;
     }
+
+    /* Smooth 1-Second Page Transitions with Premium Deceleration */
+    .animate-fade-in { animation: pageFadeIn 1s ease-out forwards; }
+    .animate-slide-from-left { animation: slideFromLeft 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .animate-slide-from-right { animation: slideFromRight 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+    @keyframes pageFadeIn {
+        0% { opacity: 0; transform: translateY(15px); }
+        100% { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideFromLeft {
+        0% { opacity: 0; transform: translateX(-40px); }
+        100% { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes slideFromRight {
+        0% { opacity: 0; transform: translateX(40px); }
+        100% { opacity: 1; transform: translateX(0); }
+    }
   </style>
 
   <!-- FIREBASE CLOUD INTEGRATION & JAVASCRIPT LOGIC -->
@@ -68,6 +86,7 @@
 
     // GLOBAL APP STATE
     window.currentUser = null;
+    window.currentPageId = 'home';
     window.currentWeeklyLoc = 'Dunfermline';
     window.currentEventsLoc = 'Dunfermline';
     
@@ -144,7 +163,6 @@
         const overlay = document.getElementById('notify-prefs-overlay');
         const content = document.getElementById('notify-prefs-content');
         
-        // Load existing preferences if available
         if (window.currentUser && window.currentUser.notifyPrefs) {
             document.getElementById('pref-bookings').checked = window.currentUser.notifyPrefs.bookings ?? true;
             document.getElementById('pref-weeklies').checked = window.currentUser.notifyPrefs.weeklies ?? true;
@@ -165,7 +183,6 @@
         setTimeout(() => { overlay.classList.add('hidden'); }, 200);
     }
 
-    // FIXED: ALERTS SAVER WITH CUSTOM SERVICE WORKER REGISTRATION
     window.saveNotifyPrefs = async function() {
         if (!window.currentUser) return;
         window.showLoading();
@@ -181,7 +198,6 @@
         try {
             let token = window.currentUser.fcmToken;
             
-            // Try to generate token if supported
             if ('Notification' in window) {
                 const permission = await Notification.requestPermission();
                 if (permission === 'granted') {
@@ -192,7 +208,7 @@
                             serviceWorkerRegistration: swRegistration
                         });
                     } catch (tokenErr) {
-                        console.warn("FCM Token skipped (Ensure you are on HTTPS or Localhost):", tokenErr);
+                        console.warn("FCM Token generation failed (Ensure HTTPS):", tokenErr);
                     }
                 }
             }
@@ -204,7 +220,6 @@
             window.currentUser.notifyPrefs = prefs;
             if (token) window.currentUser.fcmToken = token;
             
-            // Update button text to show settings are active
             const btn = document.getElementById('nav-notify-btn');
             if (btn) btn.innerText = "⚙️ Alert Settings";
 
@@ -218,16 +233,41 @@
         }
     }
 
-    // UI ROUTING
+    // UI ROUTING WITH SPATIAL TRANSITIONS
     window.toggleMobileMenu = function() {
         const menu = document.getElementById('mobile-menu');
         if (menu) menu.classList.toggle('hidden');
     }
 
     window.showPage = function(pageId) {
-        document.querySelectorAll('.page-section').forEach(section => section.classList.add('hidden'));
+        const pageOrder = ['home', 'weeklymeetups', 'events', 'bookings'];
+        
+        let currentIndex = pageOrder.indexOf(window.currentPageId);
+        let targetIndex = pageOrder.indexOf(pageId);
+        
+        let animationClass = 'animate-fade-in'; 
+        
+        if (currentIndex !== -1 && targetIndex !== -1 && currentIndex !== targetIndex) {
+            if (targetIndex > currentIndex) {
+                animationClass = 'animate-slide-from-right';
+            } else {
+                animationClass = 'animate-slide-from-left';
+            }
+        }
+
+        document.querySelectorAll('.page-section').forEach(section => {
+            section.classList.add('hidden');
+            section.classList.remove('animate-fade-in', 'animate-slide-from-left', 'animate-slide-from-right');
+        });
+
         const targetPage = document.getElementById(pageId + '-page');
-        if (targetPage) targetPage.classList.remove('hidden');
+        if (targetPage) {
+            targetPage.classList.remove('hidden');
+            void targetPage.offsetWidth; 
+            targetPage.classList.add(animationClass);
+        }
+
+        window.currentPageId = pageId;
 
         const mobileMenu = document.getElementById('mobile-menu');
         if (mobileMenu && !mobileMenu.classList.contains('hidden')) mobileMenu.classList.add('hidden');
@@ -291,7 +331,6 @@
                 if (loginBtn) loginBtn.classList.add('hidden');
                 if (logoutBtn) logoutBtn.classList.remove('hidden');
                 
-                // Show notification button for logged in users
                 if (notifyBtn && 'Notification' in window) {
                     notifyBtn.classList.remove('hidden');
                     if (hasToken) {
@@ -323,7 +362,6 @@
                 if (logoutBtn) logoutBtn.classList.add('hidden');
                 if (notifyBtn) notifyBtn.classList.add('hidden');
                 
-                // Hide navbar and lock out guests
                 if (mainNav) mainNav.classList.add('hidden');
                 
                 await window.loadPublicData(); 
@@ -504,7 +542,6 @@
         if (typeof window.renderUserDashboard === 'function') window.renderUserDashboard();
     }
 
-    // FIXED: LOAD ADMIN DATA (Now correctly includes Preorders and Events so admin lists populate!)
     window.loadAdminData = async function() {
         window.allGlobalUsers = await fetchCol("users");
         window.allBookingsData = await fetchCol("bookings");
@@ -789,6 +826,7 @@
         if(!bList || !rList) return;
 
         const now = new Date();
+        now.setHours(0,0,0,0);
 
         let futureBookings = window.tableBookingsData.filter(b => {
             if(!b.date) return true;
@@ -981,6 +1019,184 @@
             callback();
         } else if (pass !== null) {
             window.showToast("Incorrect Admin Password. Access Denied.", "error");
+        }
+    }
+
+    window.renderAdminLists = function() {
+        const wList = document.getElementById('admin-weekly-list');
+
+        if(wList) {
+            wList.innerHTML = '';
+            window.weeklyEventsData.forEach(ev => {
+                let regHTML = ''; let regCount = 0;
+                window.allRegistrationsData.forEach(r => {
+                    if (r.eventType === 'weekly' && r.eventName === ev.title && r.eventLoc === ev.location) {
+                        regCount++;
+                        let displayDate = r.exactDate ? r.exactDate : ev.day;
+                        regHTML += `
+                            <div class="flex justify-between items-center text-xs mt-2 bg-white border border-gray-200 p-2 rounded shadow-sm">
+                                <div><span class="font-bold text-gray-800">${r.userName}</span> <span class="text-gray-500">(${r.userExp}) - ${displayDate}</span></div>
+                                <button type="button" onclick="removeUserRegistration('${r.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 hover:bg-red-100 px-2 py-1 rounded">Remove</button>
+                            </div>
+                        `;
+                    }
+                });
+                wList.innerHTML += `
+                    <li class="py-4 flex flex-col border-b border-gray-200 last:border-0">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <span class="font-bold text-gray-800">${ev.day}</span> - ${ev.title} 
+                                <span class="text-gray-500 text-xs">(${ev.time})</span>
+                                <span class="bg-gray-200 text-gray-800 text-xs font-bold px-2 py-0.5 rounded ml-2">${ev.location}</span>
+                                <span class="ml-2 bg-green-100 text-green-800 text-xs font-bold px-2 py-0.5 rounded">${regCount} Registrations</span>
+                            </div>
+                            <button type="button" onclick="removeWeeklyEvent('${ev.id}')" class="text-red-500 hover:text-red-700 font-bold px-3 py-1 bg-red-50 hover:bg-red-100 rounded transition">Delete Event</button>
+                        </div>
+                        <div class="mt-2 pl-4 border-l-2 border-blue-200 space-y-1">${regHTML}</div>
+                    </li>
+                `;
+            });
+        }
+
+        const sList = document.getElementById('admin-special-list');
+        if(sList) {
+            sList.innerHTML = '';
+            window.specialEventsData.forEach(ev => {
+                let regHTML = ''; let regCount = 0;
+                window.allRegistrationsData.forEach(r => {
+                    if (r.eventType === 'special' && r.eventName === ev.title && r.eventLoc === ev.location) {
+                        regCount++;
+                        regHTML += `
+                            <div class="flex justify-between items-center text-xs mt-2 bg-white border border-gray-200 p-2 rounded shadow-sm">
+                                <div><span class="font-bold text-gray-800">${r.userName}</span> <span class="text-gray-500">(${r.userExp})</span> - ${r.userEmail}</div>
+                                <button type="button" onclick="removeUserRegistration('${r.id}')" class="text-red-500 hover:text-red-700 font-bold bg-red-50 hover:bg-red-100 px-2 py-1 rounded">Remove</button>
+                            </div>
+                        `;
+                    }
+                });
+                sList.innerHTML += `
+                    <li class="py-4 flex flex-col border-b border-gray-200 last:border-0">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <span class="font-bold text-gray-800">${ev.title}</span> <span class="text-gray-500 text-xs">(${ev.date})</span>
+                                <span class="bg-gray-200 text-gray-800 text-xs font-bold px-2 py-0.5 rounded ml-2">${ev.location}</span>
+                                <span class="ml-2 bg-green-100 text-green-800 text-xs font-bold px-2 py-0.5 rounded">${regCount} Registrations</span>
+                            </div>
+                            <button type="button" onclick="removeSpecialEvent('${ev.id}')" class="text-red-500 hover:text-red-700 font-bold px-3 py-1 bg-red-50 hover:bg-red-100 rounded transition">Delete Event</button>
+                        </div>
+                        <div class="mt-2 pl-4 border-l-2 border-green-200 space-y-1">${regHTML}</div>
+                    </li>
+                `;
+            });
+        }
+    }
+
+    // FIXED: REMOVES PAST BOOKINGS FROM ADMIN PORTAL
+    window.renderAdminBookings = function() {
+        const bList = document.getElementById('admin-bookings-list');
+        const bCount = document.getElementById('booking-count-badge');
+        if(!bList) return;
+        bList.innerHTML = '';
+        
+        const now = new Date();
+        now.setHours(0,0,0,0);
+
+        let bookings = window.allBookingsData.filter(b => {
+            if(!b.date) return true;
+            return new Date(`${b.date}T23:59:59`) >= now;
+        });
+
+        bookings.sort((a,b) => new Date(`${a.date}T${a.time || '00:00'}`) - new Date(`${b.date}T${b.time || '00:00'}`));
+
+        if (bCount) bCount.innerText = `${bookings.length} Total`;
+
+        if(bookings.length === 0) {
+            bList.innerHTML = '<li class="py-4 text-gray-500 italic text-center">No upcoming table bookings found.</li>';
+            return;
+        }
+
+        bookings.forEach(b => {
+            let statusBadge = b.status === 'pending' ? '<span class="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-0.5 rounded ml-2 uppercase">Pending</span>' : '<span class="bg-green-100 text-green-800 text-xs font-bold px-2 py-0.5 rounded ml-2 uppercase">Approved</span>';
+            let approveBtn = b.status === 'pending' ? `<button type="button" onclick="approveBooking('${b.id}')" class="text-white font-bold px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded transition mr-2">Approve</button>` : '';
+            
+            let typeArr = [];
+            if(b.tableType) typeArr.push(b.tableType);
+            let finalTypeStr = typeArr.length > 0 ? typeArr.join(' | ') : 'Table Booking';
+
+            bList.innerHTML += `
+                <li class="py-3 flex justify-between items-center border-b border-gray-100 last:border-0">
+                    <div>
+                        <span class="font-bold text-gray-800">${b.date} at ${b.time}</span>
+                        <span class="bg-gray-200 text-gray-800 text-xs font-bold px-2 py-0.5 rounded ml-2">${b.location}</span>
+                        ${statusBadge}
+                        <br>
+                        <span class="text-blue-600 font-semibold">${finalTypeStr}</span> 
+                        <span class="text-gray-500">(${b.players} Players, ${b.duration})</span>
+                        ${b.opponent ? `<br><span class="text-gray-600 text-xs">Playing vs: ${b.opponent}</span>` : ''}
+                        <br><span class="text-gray-400 text-xs">${b.email || 'No email provided'} - ${b.userName || 'Guest'}</span>
+                    </div>
+                    <div class="flex items-center">
+                        ${approveBtn}
+                        <button type="button" onclick="removeBooking('${b.id}')" class="text-red-500 hover:text-red-700 font-bold px-3 py-1 bg-red-50 hover:bg-red-100 rounded transition">Delete</button>
+                    </div>
+                </li>
+            `;
+        });
+    }
+
+    // FIXED: EVENT REGISTRATIONS SPLIT INTO 2 LISTS FOR EACH STORE
+    window.renderAdminRegistrations = function() {
+        const dList = document.getElementById('admin-registrations-dunf');
+        const kList = document.getElementById('admin-registrations-kirk');
+        const dCount = document.getElementById('reg-count-dunf');
+        const kCount = document.getElementById('reg-count-kirk');
+        
+        if(!dList || !kList) return;
+        
+        dList.innerHTML = '';
+        kList.innerHTML = '';
+        
+        let regs = [...window.allRegistrationsData];
+        
+        let dunfRegs = regs.filter(r => r.eventLoc === 'Dunfermline');
+        let kirkRegs = regs.filter(r => r.eventLoc === 'Kirkcaldy');
+
+        const sortFn = (a,b) => {
+            let aDate = a.exactDate || a.eventDay;
+            let bDate = b.exactDate || b.eventDay;
+            return new Date(aDate) - new Date(bDate);
+        };
+        dunfRegs.sort(sortFn);
+        kirkRegs.sort(sortFn);
+
+        if (dCount) dCount.innerText = `${dunfRegs.length} Total`;
+        if (kCount) kCount.innerText = `${kirkRegs.length} Total`;
+
+        const buildHtml = (r) => {
+            let displayDate = r.eventType === 'weekly' ? r.exactDate : r.eventDay;
+            return `
+                <li class="py-3 flex justify-between items-center border-b border-gray-100 last:border-0">
+                    <div>
+                        <span class="font-bold text-gray-800">${r.userName}</span><br>
+                        <span class="text-blue-600 font-semibold">${r.eventName}</span> 
+                        <br><span class="text-gray-500 text-xs">- ${displayDate} at ${r.eventTime} (${r.userExp})</span><br>
+                        <span class="text-xs text-gray-400">${r.userEmail}</span>
+                    </div>
+                    <button type="button" onclick="removeUserRegistration('${r.id}')" class="text-red-500 hover:text-red-700 font-bold px-3 py-1 bg-red-50 hover:bg-red-100 rounded transition">Delete Log</button>
+                </li>
+            `;
+        };
+
+        if(dunfRegs.length === 0) {
+            dList.innerHTML = '<li class="py-4 text-gray-500 italic text-center">No registrations found.</li>';
+        } else {
+            dunfRegs.forEach(r => { dList.innerHTML += buildHtml(r); });
+        }
+
+        if(kirkRegs.length === 0) {
+            kList.innerHTML = '<li class="py-4 text-gray-500 italic text-center">No registrations found.</li>';
+        } else {
+            kirkRegs.forEach(r => { kList.innerHTML += buildHtml(r); });
         }
     }
 
@@ -1271,7 +1487,6 @@
         });
     }
 
-    // INSTANT UI SYNC FOR PREORDERS
     window.addPreorderItem = async function() {
         const itemEl = document.getElementById('admin-new-preorder-item');
         const imgEl = document.getElementById('admin-new-preorder-img');
@@ -1318,7 +1533,7 @@
         const titleEl = document.getElementById('preorder-item-title');
         const nameEl = document.getElementById('preorder-name');
         const emailEl = document.getElementById('preorder-email');
-        const detailsEl = document.getElementById('preorder-details'); 
+        const detailsEl = document.getElementById('preorder-details');
 
         const title = titleEl ? titleEl.value : '';
         const name = nameEl ? nameEl.value : '';
@@ -1561,7 +1776,7 @@
     <main class="flex-grow max-w-7xl mx-auto w-full pb-12">
 
         <!-- ================= USER LOGIN / ACCOUNT CREATION PAGE ================= -->
-        <div id="userlogin-page" class="page-section hidden px-4 sm:px-6 lg:px-8 py-16 animate-fade-in flex items-center justify-center min-h-[70vh]">
+        <div id="userlogin-page" class="page-section hidden px-4 sm:px-6 lg:px-8 py-16 flex items-center justify-center min-h-[70vh]">
             <div class="max-w-md w-full bg-white rounded-xl shadow-2xl border border-gray-200 p-8 text-center">
                 <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-2 leading-tight">Welcome to Accent</h1>
                 <p class="text-gray-600 mb-6 text-sm">Sign in or create a free account to access table bookings and events.</p>
@@ -1595,7 +1810,7 @@
         </div>
         
         <!-- ================= HOME PAGE ================= -->
-        <div id="home-page" class="page-section hidden animate-fade-in">
+        <div id="home-page" class="page-section hidden">
             <div class="relative bg-gray-900 rounded-b-xl shadow-xl overflow-hidden mb-8">
                 <!-- Background Image Layer -->
                 <div class="absolute inset-0 bg-cover bg-center opacity-40" style="background-image: url('https://images.unsplash.com/photo-1605806616949-1e87b487cb2a?q=80&w=1200&auto=format&fit=crop');"></div>
@@ -1648,7 +1863,7 @@
 
             <div class="px-4 sm:px-6 lg:px-8 mt-6">
                 <!-- Dynamic Upcoming Special Event Panel -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col justify-between hover:shadow-md transition">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col justify-between hover:shadow-md transition mt-6">
                     <div>
                         <h2 class="text-gray-500 text-xs font-bold uppercase tracking-wider flex items-center mb-3">
                             <span class="bg-red-100 text-red-800 p-1 rounded mr-2">
@@ -1668,7 +1883,6 @@
                 <!-- Silver Sponsor Cards for Home -->
                 <div id="home-silver-sponsors" class="flex flex-col space-y-4 mt-6"></div>
 
-                <!-- Preorders -->
                 <div id="home-preorders-container" class="mt-6 space-y-4"></div>
             </div>
         </div>
@@ -1726,15 +1940,15 @@
                     <div class="col-span-1 md:col-span-2">
                         <label class="block font-bold text-base text-gray-800 mb-3">2. Select Table Size</label>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <button type="button" onclick="setBookingTableType('Group table', this)" class="book-table-btn flex flex-col justify-center items-center py-4 border-2 border-blue-600 rounded-xl bg-white text-blue-600 transition hover:bg-blue-50 shadow-sm">
+                            <button type="button" onclick="setBookingTableType('Group table (DnD/RPGs)', this)" class="book-table-btn flex flex-col justify-center items-center py-4 border-2 border-blue-600 rounded-xl bg-white text-blue-600 transition hover:bg-blue-50 shadow-sm">
                                 <span class="font-black text-lg">Group table</span>
                                 <span class="text-sm font-medium mt-1 opacity-80">(DnD / RPGs)</span>
                             </button>
-                            <button type="button" onclick="setBookingTableType('Large table', this)" class="book-table-btn flex flex-col justify-center items-center py-4 border-2 border-blue-600 rounded-xl bg-white text-blue-600 transition hover:bg-blue-50 shadow-sm">
+                            <button type="button" onclick="setBookingTableType('Large table (40k/AoS)', this)" class="book-table-btn flex flex-col justify-center items-center py-4 border-2 border-blue-600 rounded-xl bg-white text-blue-600 transition hover:bg-blue-50 shadow-sm">
                                 <span class="font-black text-lg">Large table</span>
                                 <span class="text-sm font-medium mt-1 opacity-80">(40k / AoS)</span>
                             </button>
-                            <button type="button" onclick="setBookingTableType('Medium table', this)" class="book-table-btn flex flex-col justify-center items-center py-4 border-2 border-blue-600 rounded-xl bg-white text-blue-600 transition hover:bg-blue-50 shadow-sm">
+                            <button type="button" onclick="setBookingTableType('Medium table (Skirmish)', this)" class="book-table-btn flex flex-col justify-center items-center py-4 border-2 border-blue-600 rounded-xl bg-white text-blue-600 transition hover:bg-blue-50 shadow-sm">
                                 <span class="font-black text-lg">Medium table</span>
                                 <span class="text-sm font-medium mt-1 opacity-80">(Skirmish / Board Games)</span>
                             </button>
@@ -1858,7 +2072,6 @@
                         <label class="block font-bold text-base text-gray-800 mb-3">2. Your Email</label>
                         <input type="email" id="preorder-email" class="w-full border-2 border-gray-300 rounded-xl p-4 bg-gray-50 focus:outline-none focus:border-blue-600 focus:bg-white transition text-lg">
                     </div>
-                    <!-- DETAILS ADDED HERE -->
                     <div>
                         <label class="block font-bold text-base text-gray-800 mb-3">3. Additional Details (Optional)</label>
                         <textarea id="preorder-details" placeholder="Specific quantities, factions, or extra requirements..." class="w-full border-2 border-gray-300 rounded-xl p-4 bg-gray-50 focus:outline-none focus:border-blue-600 focus:bg-white transition text-lg" rows="2"></textarea>
@@ -1873,7 +2086,7 @@
         </div>
 
         <!-- ================= STAFF LOGIN PAGE ================= -->
-        <div id="stafflogin-page" class="page-section hidden px-4 sm:px-6 lg:px-8 py-16 animate-fade-in flex items-center justify-center min-h-[60vh]">
+        <div id="stafflogin-page" class="page-section hidden px-4 sm:px-6 lg:px-8 py-16 flex items-center justify-center min-h-[60vh]">
             <div class="max-w-md w-full bg-white rounded-xl shadow-2xl border border-gray-200 p-8 text-center">
                 <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-2 leading-tight">Staff Portal</h1>
                 <p class="text-gray-600 mb-6 text-sm">Enter the admin password to access the store dashboard.</p>
@@ -1891,7 +2104,7 @@
         </div>
 
         <!-- ================= STAFF DASHBOARD PAGE ================= -->
-        <div id="staffdashboard-page" class="page-section hidden px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
+        <div id="staffdashboard-page" class="page-section hidden px-4 sm:px-6 lg:px-8 py-8">
             <div class="max-w-7xl mx-auto space-y-8">
                 
                 <!-- Header -->
@@ -1967,22 +2180,31 @@
                     </div>
                 </div>
 
-                <!-- Bookings & Registrations Logs -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Table Bookings Log -->
+                <div class="bg-white rounded-xl shadow border border-gray-200 p-6 mb-6">
+                    <div class="flex justify-between items-center border-b pb-2 mb-4">
+                        <h2 class="text-lg font-bold text-gray-900">Table Bookings</h2>
+                        <span id="booking-count-badge" class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">0 Total</span>
+                    </div>
+                    <ul id="admin-bookings-list" class="divide-y divide-gray-100 max-h-64 overflow-y-auto pr-2"></ul>
+                </div>
+
+                <!-- Event Registrations Split -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                     <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
                         <div class="flex justify-between items-center border-b pb-2 mb-4">
-                            <h2 class="text-lg font-bold text-gray-900">Table Bookings</h2>
-                            <span id="booking-count-badge" class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">0 Total</span>
+                            <h2 class="text-lg font-bold text-gray-900">Dunfermline Registrations</h2>
+                            <span id="reg-count-dunf" class="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded">0 Total</span>
                         </div>
-                        <ul id="admin-bookings-list" class="divide-y divide-gray-100 max-h-64 overflow-y-auto pr-2"></ul>
+                        <ul id="admin-registrations-dunf" class="divide-y divide-gray-100 max-h-64 overflow-y-auto pr-2"></ul>
                     </div>
 
                     <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
                         <div class="flex justify-between items-center border-b pb-2 mb-4">
-                            <h2 class="text-lg font-bold text-gray-900">Event Registrations</h2>
-                            <span id="reg-count-badge" class="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded">0 Total</span>
+                            <h2 class="text-lg font-bold text-gray-900">Kirkcaldy Registrations</h2>
+                            <span id="reg-count-kirk" class="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded">0 Total</span>
                         </div>
-                        <ul id="admin-registrations-list" class="divide-y divide-gray-100 max-h-64 overflow-y-auto pr-2"></ul>
+                        <ul id="admin-registrations-kirk" class="divide-y divide-gray-100 max-h-64 overflow-y-auto pr-2"></ul>
                     </div>
                 </div>
 
@@ -2088,4 +2310,4 @@
     </footer>
 
 </body>
-</html> 
+</html>
