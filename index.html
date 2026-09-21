@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- MOBILE OPTIMIZATION: viewport-fit=cover fills the notch, user-scalable=no prevents accidental zooming -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
   <title>Accent Gaming</title>
   
   <!-- Web Icon / Favicon -->
@@ -25,6 +26,25 @@
   </script>
 
   <style>
+    /* NATIVE APP FEEL OPTIMIZATIONS */
+    html, body {
+        /* Prevents the elastic pull-to-refresh bounce on mobile */
+        overscroll-behavior-y: none;
+        /* Adds padding for physical phone notches/dynamic islands */
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    button, a, select {
+        /* Removes 300ms tap delay and text highlighting on buttons */
+        touch-action: manipulation;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
     /* Custom Styling for Cooler Date & Time Pickers */
     input[type="date"].cool-date, 
     input[type="time"].cool-time {
@@ -39,27 +59,32 @@
         border-radius: 8px;
         transition: all 0.2s ease;
     }
-    input[type="date"].cool-date::-webkit-calendar-picker-indicator:hover,
-    input[type="time"].cool-time::-webkit-calendar-picker-indicator:hover {
-        background-color: #bfdbfe;
-    }
 
-    /* Smooth 1-Second Page Transitions with Premium Deceleration */
-    .animate-fade-in { animation: pageFadeIn 1s ease-out forwards; }
-    .animate-slide-from-left { animation: slideFromLeft 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-    .animate-slide-from-right { animation: slideFromRight 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-
-    @keyframes pageFadeIn {
-        0% { opacity: 0; transform: translateY(15px); }
-        100% { opacity: 1; transform: translateY(0); }
+    /* SIMULTANEOUS "ONE BIG PAGE" SLIDE TRANSITIONS */
+    main {
+        overflow-x: hidden; /* Prevents horizontal scrollbars during the slide */
+        position: relative;
     }
-    @keyframes slideFromLeft {
-        0% { opacity: 0; transform: translateX(-40px); }
-        100% { opacity: 1; transform: translateX(0); }
+    .page-section {
+        width: 100%;
     }
-    @keyframes slideFromRight {
-        0% { opacity: 0; transform: translateX(40px); }
-        100% { opacity: 1; transform: translateX(0); }
+    .sliding-transition {
+        /* 300ms ease-in-out cubic bezier curve as requested */
+        transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .absolute-layer {
+        /* Keeps the outgoing page in position while it slides out */
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        z-index: 10;
+    }
+    .relative-layer {
+        /* The incoming page sits in the document flow */
+        position: relative;
+        z-index: 20;
+        width: 100%;
     }
   </style>
 
@@ -185,8 +210,14 @@
 
     window.saveNotifyPrefs = async function() {
         if (!window.currentUser) return;
-        window.showLoading();
         
+        const saveBtn = document.querySelector('#notify-prefs-content button.bg-blue-600');
+        const originalText = saveBtn ? saveBtn.innerText : "Save Preferences";
+        if (saveBtn) {
+            saveBtn.innerText = "Saving...";
+            saveBtn.disabled = true;
+        }
+
         const prefs = {
             bookings: document.getElementById('pref-bookings').checked,
             weeklies: document.getElementById('pref-weeklies').checked,
@@ -197,18 +228,26 @@
 
         try {
             let token = window.currentUser.fcmToken;
-            
+
             if ('Notification' in window) {
                 const permission = await Notification.requestPermission();
                 if (permission === 'granted') {
                     try {
-                        const swRegistration = await navigator.serviceWorker.getRegistration();
-                        token = await getToken(messaging, { 
+                        let swRegistration = await navigator.serviceWorker.getRegistration();
+                        if (!swRegistration) {
+                            swRegistration = await navigator.serviceWorker.register('sw.js');
+                        }
+
+                        const tokenPromise = getToken(messaging, { 
                             vapidKey: 'BKVhCvFFwUi3iIsJzsOZwTBOB86sNfuFiRx-Fpefpp3EvUDpwOs0ub61MBwkWd7MNwPFOvUberYkS6Av8s0kOtM',
                             serviceWorkerRegistration: swRegistration
                         });
+
+                        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Firebase token request timed out.")), 5000));
+                        
+                        token = await Promise.race([tokenPromise, timeoutPromise]);
                     } catch (tokenErr) {
-                        console.warn("FCM Token generation failed (Ensure HTTPS):", tokenErr);
+                        console.warn("FCM Token generation failed or timed out:", tokenErr);
                     }
                 }
             }
@@ -229,7 +268,10 @@
             console.error("Prefs error:", err);
             window.showToast("Failed to save settings.", "error");
         } finally {
-            window.hideLoading();
+            if (saveBtn) {
+                saveBtn.innerText = originalText;
+                saveBtn.disabled = false;
+            }
         }
     }
 
@@ -240,35 +282,70 @@
     }
 
     window.showPage = function(pageId) {
-        const pageOrder = ['home', 'weeklymeetups', 'events', 'bookings'];
+        if (window.currentPageId === pageId) return;
+
+        const targetPage = document.getElementById(pageId + '-page');
+        const currentPage = document.getElementById(window.currentPageId + '-page');
         
+        if (!targetPage) return;
+
+        // Determine logical direction for the unified page slide
+        const pageOrder = ['home', 'weeklymeetups', 'events', 'bookings'];
         let currentIndex = pageOrder.indexOf(window.currentPageId);
         let targetIndex = pageOrder.indexOf(pageId);
         
-        let animationClass = 'animate-fade-in'; 
-        
-        if (currentIndex !== -1 && targetIndex !== -1 && currentIndex !== targetIndex) {
-            if (targetIndex > currentIndex) {
-                animationClass = 'animate-slide-from-right';
-            } else {
-                animationClass = 'animate-slide-from-left';
-            }
+        let slideBackwards = false;
+        if (currentIndex !== -1 && targetIndex !== -1 && targetIndex < currentIndex) {
+            slideBackwards = true;
         }
 
+        // Wipe styles from all other inactive pages to ensure a clean slate
         document.querySelectorAll('.page-section').forEach(section => {
-            section.classList.add('hidden');
-            section.classList.remove('animate-fade-in', 'animate-slide-from-left', 'animate-slide-from-right');
+            if (section.id !== window.currentPageId + '-page' && section.id !== pageId + '-page') {
+                section.classList.add('hidden');
+                section.classList.remove('absolute-layer', 'relative-layer', 'sliding-transition');
+                section.style.transform = '';
+            }
         });
 
-        const targetPage = document.getElementById(pageId + '-page');
-        if (targetPage) {
+        if (currentPage) {
+            // Unhide target and assign layering
             targetPage.classList.remove('hidden');
+            targetPage.classList.add('relative-layer');
+            currentPage.classList.add('absolute-layer');
+
+            // Position target off-screen exactly outside the viewpoint
+            targetPage.style.transform = slideBackwards ? 'translateX(-100%)' : 'translateX(100%)';
+            currentPage.style.transform = 'translateX(0)';
+
+            // Force browser to recalculate the layout so it sees the starting position
             void targetPage.offsetWidth; 
-            targetPage.classList.add(animationClass);
+
+            // Add the 300ms bezier transition classes to both pages simultaneously
+            targetPage.classList.add('sliding-transition');
+            currentPage.classList.add('sliding-transition');
+
+            // Trigger the synchronized slide
+            targetPage.style.transform = 'translateX(0)';
+            currentPage.style.transform = slideBackwards ? 'translateX(100%)' : 'translateX(-100%)';
+
+            // Clean up the DOM after exactly 300ms
+            setTimeout(() => {
+                currentPage.classList.add('hidden');
+                currentPage.classList.remove('absolute-layer', 'sliding-transition');
+                currentPage.style.transform = '';
+                
+                targetPage.classList.remove('relative-layer', 'sliding-transition');
+                targetPage.style.transform = '';
+            }, 300);
+        } else {
+            // Fallback for initial load
+            targetPage.classList.remove('hidden');
         }
 
         window.currentPageId = pageId;
 
+        // UI Nav updates (Mobile menu close & active button styling)
         const mobileMenu = document.getElementById('mobile-menu');
         if (mobileMenu && !mobileMenu.classList.contains('hidden')) mobileMenu.classList.add('hidden');
 
@@ -1091,7 +1168,6 @@
         }
     }
 
-    // FIXED: REMOVES PAST BOOKINGS FROM ADMIN PORTAL
     window.renderAdminBookings = function() {
         const bList = document.getElementById('admin-bookings-list');
         const bCount = document.getElementById('booking-count-badge');
@@ -1144,7 +1220,6 @@
         });
     }
 
-    // FIXED: EVENT REGISTRATIONS SPLIT INTO 2 LISTS FOR EACH STORE
     window.renderAdminRegistrations = function() {
         const dList = document.getElementById('admin-registrations-dunf');
         const kList = document.getElementById('admin-registrations-kirk');
@@ -2072,6 +2147,7 @@
                         <label class="block font-bold text-base text-gray-800 mb-3">2. Your Email</label>
                         <input type="email" id="preorder-email" class="w-full border-2 border-gray-300 rounded-xl p-4 bg-gray-50 focus:outline-none focus:border-blue-600 focus:bg-white transition text-lg">
                     </div>
+                    <!-- DETAILS ADDED HERE -->
                     <div>
                         <label class="block font-bold text-base text-gray-800 mb-3">3. Additional Details (Optional)</label>
                         <textarea id="preorder-details" placeholder="Specific quantities, factions, or extra requirements..." class="w-full border-2 border-gray-300 rounded-xl p-4 bg-gray-50 focus:outline-none focus:border-blue-600 focus:bg-white transition text-lg" rows="2"></textarea>
