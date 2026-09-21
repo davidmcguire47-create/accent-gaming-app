@@ -1,20 +1,21 @@
 {
   "name": "Accent Gaming",
-  "short_name": "Accent Gaming",
-  "description": "The official Accent Gaming mobile application.",
-  "start_url": "/accent-gaming-app/",
-  "scope": "/accent-gaming-app/",
+  "short_name": "Accent",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#002b7f",
-  "dir": "ltr",
-  "orientation": "any",
+  "theme_color": "#2563eb",
   "icons": [
     {
-      "src": "accent-icon.png",
+      "src": "https://cdn.corenexis.com/f/jDzd4MUX1A1.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn.corenexis.com/f/jDzd4MUX1A1.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ]
 }
