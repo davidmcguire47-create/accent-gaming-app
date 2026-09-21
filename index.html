@@ -2,21 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <!-- MOBILE OPTIMIZATION: viewport-fit=cover fills the notch, user-scalable=no prevents accidental zooming -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
   <title>Accent Gaming</title>
   
-  <!-- Web Icon / Favicon -->
   <link rel="icon" type="image/png" href="https://cdn.corenexis.com/f/jDzd4MUX1A1.png">
   <link rel="apple-touch-icon" href="https://cdn.corenexis.com/f/jDzd4MUX1A1.png">
-  
-  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- PWA Web Manifest -->
   <link rel="manifest" href="manifest.json">
   
-  <!-- Service Worker Registration -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -26,11 +19,8 @@
   </script>
 
   <style>
-    /* NATIVE APP FEEL OPTIMIZATIONS */
     html, body {
-        /* Prevents the elastic pull-to-refresh bounce on mobile */
         overscroll-behavior-y: none;
-        /* Adds padding for physical phone notches/dynamic islands */
         padding-top: env(safe-area-inset-top);
         padding-bottom: env(safe-area-inset-bottom);
         padding-left: env(safe-area-inset-left);
@@ -39,13 +29,11 @@
     }
 
     button, a, select {
-        /* Removes 300ms tap delay and text highlighting on buttons */
         touch-action: manipulation;
         user-select: none;
         -webkit-user-select: none;
     }
 
-    /* Custom Styling for Cooler Date & Time Pickers */
     input[type="date"].cool-date, 
     input[type="time"].cool-time {
         position: relative;
@@ -60,20 +48,17 @@
         transition: all 0.2s ease;
     }
 
-    /* SIMULTANEOUS "ONE BIG PAGE" SLIDE TRANSITIONS */
     main {
-        overflow-x: hidden; /* Prevents horizontal scrollbars during the slide */
+        overflow-x: hidden;
         position: relative;
     }
     .page-section {
         width: 100%;
     }
     .sliding-transition {
-        /* 300ms ease-in-out cubic bezier curve as requested */
         transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
     }
     .absolute-layer {
-        /* Keeps the outgoing page in position while it slides out */
         position: absolute;
         top: 0;
         left: 0;
@@ -81,14 +66,12 @@
         z-index: 10;
     }
     .relative-layer {
-        /* The incoming page sits in the document flow */
         position: relative;
         z-index: 20;
         width: 100%;
     }
   </style>
 
-  <!-- FIREBASE CLOUD INTEGRATION & JAVASCRIPT LOGIC -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -111,7 +94,7 @@
 
     // GLOBAL APP STATE
     window.currentUser = null;
-    window.currentPageId = 'home';
+    window.currentPageId = null;
     window.currentWeeklyLoc = 'Dunfermline';
     window.currentEventsLoc = 'Dunfermline';
     
@@ -127,7 +110,6 @@
     window.approvedStoresData = [];
     window.sponsorsData = [];
 
-    // LOADING OVERLAY CONTROLS
     window.showLoading = function() {
         const overlay = document.getElementById('loading-overlay');
         if(overlay) overlay.classList.remove('hidden');
@@ -138,7 +120,6 @@
         if(overlay) overlay.classList.add('hidden');
     }
 
-    // IN-APP TOAST NOTIFICATION
     window.showToast = function(message, type = 'success') {
         const toast = document.getElementById('global-toast');
         const icon = document.getElementById('toast-icon');
@@ -183,7 +164,6 @@
         if(result && window.confirmCallback) window.confirmCallback();
     }
 
-    // USER NOTIFICATION PREFERENCES MODAL
     window.openNotifyPrefs = function() {
         const overlay = document.getElementById('notify-prefs-overlay');
         const content = document.getElementById('notify-prefs-content');
@@ -275,7 +255,6 @@
         }
     }
 
-    // UI ROUTING WITH SPATIAL TRANSITIONS
     window.toggleMobileMenu = function() {
         const menu = document.getElementById('mobile-menu');
         if (menu) menu.classList.toggle('hidden');
@@ -285,13 +264,12 @@
         if (window.currentPageId === pageId) return;
 
         const targetPage = document.getElementById(pageId + '-page');
-        const currentPage = document.getElementById(window.currentPageId + '-page');
+        const currentPage = window.currentPageId ? document.getElementById(window.currentPageId + '-page') : null;
         
         if (!targetPage) return;
 
-        // Determine logical direction for the unified page slide
         const pageOrder = ['home', 'weeklymeetups', 'events', 'bookings'];
-        let currentIndex = pageOrder.indexOf(window.currentPageId);
+        let currentIndex = window.currentPageId ? pageOrder.indexOf(window.currentPageId) : -1;
         let targetIndex = pageOrder.indexOf(pageId);
         
         let slideBackwards = false;
@@ -299,9 +277,8 @@
             slideBackwards = true;
         }
 
-        // Wipe styles from all other inactive pages to ensure a clean slate
         document.querySelectorAll('.page-section').forEach(section => {
-            if (section.id !== window.currentPageId + '-page' && section.id !== pageId + '-page') {
+            if (section.id !== (window.currentPageId ? window.currentPageId + '-page' : '') && section.id !== pageId + '-page') {
                 section.classList.add('hidden');
                 section.classList.remove('absolute-layer', 'relative-layer', 'sliding-transition');
                 section.style.transform = '';
@@ -309,27 +286,21 @@
         });
 
         if (currentPage) {
-            // Unhide target and assign layering
             targetPage.classList.remove('hidden');
             targetPage.classList.add('relative-layer');
             currentPage.classList.add('absolute-layer');
 
-            // Position target off-screen exactly outside the viewpoint
             targetPage.style.transform = slideBackwards ? 'translateX(-100%)' : 'translateX(100%)';
             currentPage.style.transform = 'translateX(0)';
 
-            // Force browser to recalculate the layout so it sees the starting position
             void targetPage.offsetWidth; 
 
-            // Add the 300ms bezier transition classes to both pages simultaneously
             targetPage.classList.add('sliding-transition');
             currentPage.classList.add('sliding-transition');
 
-            // Trigger the synchronized slide
             targetPage.style.transform = 'translateX(0)';
             currentPage.style.transform = slideBackwards ? 'translateX(100%)' : 'translateX(-100%)';
 
-            // Clean up the DOM after exactly 300ms
             setTimeout(() => {
                 currentPage.classList.add('hidden');
                 currentPage.classList.remove('absolute-layer', 'sliding-transition');
@@ -339,13 +310,11 @@
                 targetPage.style.transform = '';
             }, 300);
         } else {
-            // Fallback for initial load
             targetPage.classList.remove('hidden');
         }
 
         window.currentPageId = pageId;
 
-        // UI Nav updates (Mobile menu close & active button styling)
         const mobileMenu = document.getElementById('mobile-menu');
         if (mobileMenu && !mobileMenu.classList.contains('hidden')) mobileMenu.classList.add('hidden');
 
@@ -370,12 +339,10 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // FOREGROUND NOTIFICATION LISTENER
     onMessage(messaging, (payload) => {
         window.showToast(`🔔 ${payload.notification?.title || 'New Update'}: ${payload.notification?.body || ''}`, "success");
     });
 
-    // AUTHENTICATION & IDENTITY
     onAuthStateChanged(auth, async (user) => {
         window.showLoading();
         try {
@@ -553,7 +520,6 @@
         return `${yyyy}-${mm}-${dd}`;
     }
 
-    // INDEPENDENT DATA FETCHING
     const fetchCol = async (cName) => {
         try {
             const s = await getDocs(collection(db, cName));
@@ -643,7 +609,6 @@
         if (typeof window.renderAdminSponsorsList === 'function') window.renderAdminSponsorsList();
     }
 
-    // UI RENDERERS & ACTIONS
     window.setWeeklyLocation = function(loc) {
         window.currentWeeklyLoc = loc;
         const btnDunf = document.getElementById('btn-weekly-dunfermline');
@@ -1168,6 +1133,7 @@
         }
     }
 
+    // FIXED: COLOR-CODED ADMIN BOOKING LOGS
     window.renderAdminBookings = function() {
         const bList = document.getElementById('admin-bookings-list');
         const bCount = document.getElementById('booking-count-badge');
@@ -1199,11 +1165,20 @@
             if(b.tableType) typeArr.push(b.tableType);
             let finalTypeStr = typeArr.length > 0 ? typeArr.join(' | ') : 'Table Booking';
 
+            // DYNAMIC LOCATION STYLING
+            let locBadgeColor = b.location === 'Dunfermline' 
+                ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                : (b.location === 'Kirkcaldy' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-gray-200 text-gray-800');
+            
+            let rowBorder = b.location === 'Dunfermline' 
+                ? 'border-l-4 border-l-blue-500 pl-3' 
+                : (b.location === 'Kirkcaldy' ? 'border-l-4 border-l-green-500 pl-3' : 'pl-3');
+
             bList.innerHTML += `
-                <li class="py-3 flex justify-between items-center border-b border-gray-100 last:border-0">
+                <li class="py-3 flex justify-between items-center border-b border-gray-100 last:border-0 ${rowBorder}">
                     <div>
                         <span class="font-bold text-gray-800">${b.date} at ${b.time}</span>
-                        <span class="bg-gray-200 text-gray-800 text-xs font-bold px-2 py-0.5 rounded ml-2">${b.location}</span>
+                        <span class="${locBadgeColor} text-xs font-bold px-2 py-0.5 rounded ml-2 shadow-sm">${b.location}</span>
                         ${statusBadge}
                         <br>
                         <span class="text-blue-600 font-semibold">${finalTypeStr}</span> 
@@ -1810,9 +1785,9 @@
             <div class="flex justify-between h-16">
                 <!-- Logo and Links -->
                 <div class="flex items-center">
-                    <div class="flex-shrink-0 flex items-center mr-8">
-                        <span class="text-white text-xl md:text-2xl font-black tracking-wider uppercase">Accent <span class="text-blue-500">Gaming</span></span>
-                    </div>
+                    <button type="button" onclick="showPage('home')" class="flex-shrink-0 flex items-center mr-8 text-left focus:outline-none group">
+                        <span class="text-white text-xl md:text-2xl font-black tracking-wider uppercase group-hover:opacity-80 transition cursor-pointer">Accent <span class="text-blue-500">Gaming</span></span>
+                    </button>
                     
                     <!-- Desktop Menu -->
                     <div class="hidden md:flex space-x-4 items-center">
@@ -2363,13 +2338,16 @@
     <footer class="bg-gray-900 border-t border-gray-800 mt-auto">
         <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
             <div class="flex flex-col md:flex-row justify-between items-center">
-                <div class="mb-4 md:mb-0 flex items-center">
-                    <img src="https://cdn.corenexis.com/f/jDzd4MUX1A1.png" alt="Accent Gaming Logo" class="h-10 w-10 mr-3 rounded-md shadow-sm">
+                
+                <!-- Footer Logo (NOW INTERACTIVE) -->
+                <button type="button" onclick="showPage('home')" class="mb-4 md:mb-0 flex items-center text-left focus:outline-none group">
+                    <img src="https://cdn.corenexis.com/f/jDzd4MUX1A1.png" alt="Accent Gaming Logo" class="h-10 w-10 mr-3 rounded-md shadow-sm group-hover:scale-105 transition">
                     <div>
-                        <span class="text-white text-xl font-black tracking-wider uppercase">Accent <span class="text-blue-500">Gaming</span></span>
+                        <span class="text-white text-xl font-black tracking-wider uppercase group-hover:text-blue-400 transition cursor-pointer">Accent <span class="text-blue-500">Gaming</span></span>
                         <p class="text-gray-400 text-sm mt-1">Community Hub • Dunfermline & Kirkcaldy</p>
                     </div>
-                </div>
+                </button>
+                
                 <div class="flex space-x-6 items-center">
                     <!-- Notification Bell -->
                     <button type="button" id="nav-notify-btn" onclick="openNotifyPrefs()" class="text-yellow-400 hover:text-yellow-300 font-bold text-sm transition hidden">🔔 Enable Alerts</button>
